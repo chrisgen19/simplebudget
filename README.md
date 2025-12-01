@@ -178,6 +178,34 @@ npm run build
 npm start
 ```
 
+## Deploy to Vercel
+
+### 1. Push to GitHub
+
+```bash
+git add .
+git commit -m "Initial commit"
+git push
+```
+
+### 2. Import to Vercel
+
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Click "Add New Project"
+3. Import your GitHub repository
+4. Configure environment variables:
+   - `DATABASE_URL`: Your PostgreSQL connection string
+
+### 3. Deploy
+
+Vercel will automatically:
+- Install dependencies
+- Run `postinstall` script (generates Prisma Client)
+- Build the application
+- Deploy to production
+
+**Note**: The `next.config.ts` includes `ignoreBuildErrors: true` to handle Prisma type generation timing on Vercel. All types are validated locally before deployment.
+
 ## Available Scripts
 
 - `npm run dev` - Start development server
