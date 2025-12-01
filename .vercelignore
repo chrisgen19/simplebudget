@@ -1,0 +1,4 @@
+# Vercel ignore file
+# Include everything needed for build
+!prisma/
+!prisma.config.ts
