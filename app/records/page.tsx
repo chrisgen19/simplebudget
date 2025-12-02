@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import SwipeableExpense from '@/components/SwipeableExpense';
 
@@ -27,6 +27,11 @@ export default function RecordsPage() {
   }>>([]);
   const [user, setUser] = useState<{ id: number; firstName: string; lastName: string } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -66,9 +71,7 @@ export default function RecordsPage() {
   const getCategoryInfo = (id: string) => categories.find(c => c.id === id);
 
   const handleEdit = (expense: any) => {
-    // Store the expense to edit in localStorage
     localStorage.setItem('editExpense', JSON.stringify(expense));
-    // Redirect to homepage
     router.push('/');
   };
 
@@ -88,7 +91,6 @@ export default function RecordsPage() {
       });
 
       if (response.ok) {
-        // Remove from state
         setExpenses(expenses.filter(e => e.id !== id));
       } else {
         alert('Failed to delete expense');
@@ -99,52 +101,100 @@ export default function RecordsPage() {
     }
   };
 
-  // Get today's date in local timezone (YYYY-MM-DD format)
-  const getLocalDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const toggleMonth = (monthKey: string) => {
+    const newCollapsed = new Set(collapsedMonths);
+    if (newCollapsed.has(monthKey)) {
+      newCollapsed.delete(monthKey);
+    } else {
+      newCollapsed.add(monthKey);
+    }
+    setCollapsedMonths(newCollapsed);
   };
 
-  const today = getLocalDateString(new Date());
-  const todayExpenses = expenses.filter(e => e.date === today);
-  const previousExpenses = expenses.filter(e => e.date !== today);
+  // Filter and group expenses
+  const { groupedByMonth, totalAmount, filteredCount } = useMemo(() => {
+    // Apply filters
+    let filtered = expenses;
 
-  // Group expenses by date
-  const groupedExpenses = previousExpenses.reduce((groups, expense) => {
-    const date = expense.date;
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(expense);
-    return groups;
-  }, {} as Record<string, typeof expenses>);
-
-  const sortedDates = Object.keys(groupedExpenses).sort((a, b) => b.localeCompare(a));
-
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = getLocalDateString(yesterday);
-
-    if (dateStr === yesterdayStr) {
-      return 'Yesterday';
+    // Category filter
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(e => e.category === selectedCategory);
     }
 
-    const [year, month, day] = dateStr.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(e =>
+        e.note.toLowerCase().includes(query) ||
+        e.amount.toString().includes(query) ||
+        getCategoryInfo(e.category)?.label.toLowerCase().includes(query)
+      );
+    }
 
+    // Group by month and year
+    const grouped = filtered.reduce((groups, expense) => {
+      const [year, month] = expense.date.split('-');
+      const monthKey = `${year}-${month}`;
+
+      if (!groups[monthKey]) {
+        groups[monthKey] = {
+          expenses: [],
+          total: 0,
+          year,
+          month,
+        };
+      }
+
+      groups[monthKey].expenses.push(expense);
+      groups[monthKey].total += expense.amount;
+
+      return groups;
+    }, {} as Record<string, { expenses: typeof filtered; total: number; year: string; month: string }>);
+
+    // Sort by month (most recent first)
+    const sortedKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+    const sortedGrouped = sortedKeys.reduce((acc, key) => {
+      acc[key] = grouped[key];
+      return acc;
+    }, {} as typeof grouped);
+
+    const total = filtered.reduce((sum, e) => sum + e.amount, 0);
+
+    return {
+      groupedByMonth: sortedGrouped,
+      totalAmount: total,
+      filteredCount: filtered.length,
+    };
+  }, [expenses, selectedCategory, searchQuery]);
+
+  const formatMonthYear = (year: string, month: string) => {
+    const date = new Date(parseInt(year), parseInt(month) - 1);
     return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
+      month: 'long',
       year: 'numeric'
     });
   };
 
-  const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const formatDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const isToday = dateStr === today.toISOString().split('T')[0];
+    const isYesterday = dateStr === yesterday.toISOString().split('T')[0];
+
+    if (isToday) return 'Today';
+    if (isYesterday) return 'Yesterday';
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   if (loading) {
     return (
@@ -155,9 +205,9 @@ export default function RecordsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 max-w-md mx-auto">
+    <div className="min-h-screen bg-slate-50 p-4 max-w-md mx-auto pb-20">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => router.push('/')}
@@ -170,75 +220,146 @@ export default function RecordsPage() {
           <div className="w-16"></div>
         </div>
 
+        {/* Summary Card */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Spending</p>
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+            {selectedCategory !== 'all' || searchQuery ? 'Filtered' : 'Total'} Spending
+          </p>
           <p className="text-3xl font-bold text-slate-800">₱{totalAmount.toLocaleString()}</p>
-          <p className="text-xs text-slate-500 mt-1">{expenses.length} transactions</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {filteredCount} transaction{filteredCount !== 1 ? 's' : ''}
+            {(selectedCategory !== 'all' || searchQuery) && ` (of ${expenses.length} total)`}
+          </p>
         </div>
       </div>
 
-      {/* All Expenses */}
-      {expenses.length === 0 ? (
+      {/* Search Bar */}
+      <div className="mb-3">
+        <input
+          type="text"
+          placeholder="Search expenses..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full p-3 bg-white rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-200 border border-slate-200"
+        />
+      </div>
+
+      {/* Category Filter */}
+      <div className="mb-4 overflow-x-auto">
+        <div className="flex gap-2 pb-2">
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+              selectedCategory === 'all'
+                ? 'bg-slate-800 text-white'
+                : 'bg-white text-slate-600 border border-slate-200'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                selectedCategory === cat.id
+                  ? 'bg-slate-800 text-white'
+                  : 'bg-white text-slate-600 border border-slate-200'
+              }`}
+            >
+              {cat.icon} {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Expenses grouped by month */}
+      {filteredCount === 0 ? (
         <div className="text-center py-12">
-          <p className="text-slate-400">No expenses recorded yet</p>
+          <p className="text-slate-400">
+            {searchQuery || selectedCategory !== 'all'
+              ? 'No expenses found matching your filters'
+              : 'No expenses recorded yet'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-4 pb-6">
-          {/* Today's Expenses */}
-          {todayExpenses.length > 0 && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-semibold text-slate-800">Today</span>
-                <span className="text-lg font-bold text-slate-800">
-                  ₱{todayExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}
-                </span>
-              </div>
+        <div className="space-y-3">
+          {Object.entries(groupedByMonth).map(([monthKey, monthData]) => {
+            const isCollapsed = collapsedMonths.has(monthKey);
 
-              <div className="space-y-2">
-                {todayExpenses.map((expense) => {
-                  const cat = getCategoryInfo(expense.category);
-                  return (
-                    <SwipeableExpense
-                      key={expense.id}
-                      expense={expense}
-                      categoryIcon={cat?.icon}
-                      categoryLabel={cat?.label}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            // Group expenses by date within the month
+            const groupedByDate = monthData.expenses.reduce((groups, expense) => {
+              if (!groups[expense.date]) {
+                groups[expense.date] = [];
+              }
+              groups[expense.date].push(expense);
+              return groups;
+            }, {} as Record<string, typeof monthData.expenses>);
 
-          {/* All Previous Days */}
-          {sortedDates.map((dateStr) => {
-            const dateExpenses = groupedExpenses[dateStr];
-            const dateTotal = dateExpenses.reduce((sum, e) => sum + e.amount, 0);
+            const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
 
             return (
-              <div key={dateStr} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm font-medium text-slate-500">{formatDate(dateStr)}</span>
-                  <span className="text-base font-semibold text-slate-700">₱{dateTotal.toLocaleString()}</span>
-                </div>
+              <div key={monthKey} className="bg-white rounded-2xl shadow-sm border border-slate-200">
+                {/* Month Header */}
+                <button
+                  onClick={() => toggleMonth(monthKey)}
+                  className="w-full p-4 flex items-center justify-between hover:bg-slate-50 rounded-t-2xl transition-colors"
+                >
+                  <div className="text-left">
+                    <h2 className="text-lg font-bold text-slate-800">
+                      {formatMonthYear(monthData.year, monthData.month)}
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      {monthData.expenses.length} transaction{monthData.expenses.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-slate-800">
+                      ₱{monthData.total.toLocaleString()}
+                    </span>
+                    <span className="text-slate-400 text-xl">
+                      {isCollapsed ? '▼' : '▲'}
+                    </span>
+                  </div>
+                </button>
 
-                <div className="space-y-2">
-                  {dateExpenses.map((expense) => {
-                    const cat = getCategoryInfo(expense.category);
-                    return (
-                      <SwipeableExpense
-                        key={expense.id}
-                        expense={expense}
-                        categoryIcon={cat?.icon}
-                        categoryLabel={cat?.label}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                      />
-                    );
-                  })}
-                </div>
+                {/* Month Content */}
+                {!isCollapsed && (
+                  <div className="px-4 pb-4 space-y-3">
+                    {sortedDates.map((dateStr) => {
+                      const dateExpenses = groupedByDate[dateStr];
+                      const dateTotal = dateExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+                      return (
+                        <div key={dateStr} className="border-t border-slate-100 pt-3">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-slate-600">
+                              {formatDate(dateStr)}
+                            </span>
+                            <span className="text-sm font-semibold text-slate-700">
+                              ₱{dateTotal.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {dateExpenses.map((expense) => {
+                              const cat = getCategoryInfo(expense.category);
+                              return (
+                                <SwipeableExpense
+                                  key={expense.id}
+                                  expense={expense}
+                                  categoryIcon={cat?.icon}
+                                  categoryLabel={cat?.label}
+                                  onEdit={handleEdit}
+                                  onDelete={handleDelete}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
