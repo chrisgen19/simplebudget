@@ -8,9 +8,15 @@
   -webkit-touch-callout: none;
 }
 
-body {
+html, body {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Allow pan and swipe gestures, but prevent pinch zoom */
+html {
+  touch-action: pan-x pan-y;
+  -ms-touch-action: pan-x pan-y;
 }
 
 /* Prevent text selection on UI elements (but allow on input fields) */
@@ -27,6 +33,11 @@ input, textarea {
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
+}
+
+/* Prevent iOS Safari from zooming on input focus - MUST be at least 16px */
+input, textarea, select {
+  font-size: 16px !important;
 }
 
 /* Smooth scrolling */
