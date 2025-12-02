@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import SwipeableExpense from '@/components/SwipeableExpense';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const categories = [
   { id: 'food', label: 'Food', icon: '🍔', color: 'bg-orange-100 border-orange-300 text-orange-700' },
@@ -197,11 +198,7 @@ export default function RecordsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-600">Loading...</div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (

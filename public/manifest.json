@@ -4,9 +4,11 @@
   "description": "Track your expenses easily with swipe gestures and detailed statistics",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#f8fafc",
   "theme_color": "#1e293b",
   "orientation": "portrait",
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-192.png",

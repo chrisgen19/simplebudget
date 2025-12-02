@@ -13,9 +13,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const parsedUserId = parseInt(userId);
+    if (isNaN(parsedUserId)) {
+      return NextResponse.json(
+        { error: 'Invalid User ID' },
+        { status: 400 }
+      );
+    }
+
     const expenses = await prisma.expense.findMany({
       where: {
-        userId: parseInt(userId),
+        userId: parsedUserId,
       },
       orderBy: {
         date: 'desc',
@@ -44,6 +52,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const parsedUserId = parseInt(userId);
+    if (isNaN(parsedUserId)) {
+      return NextResponse.json(
+        { error: 'Invalid User ID' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { amount, category, payment, note, date } = body;
 
@@ -61,7 +77,7 @@ export async function POST(request: NextRequest) {
         payment,
         note: note || '',
         date: new Date(date),
-        userId: parseInt(userId),
+        userId: parsedUserId,
       },
     });
 

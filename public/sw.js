@@ -1,8 +1,5 @@
-const CACHE_NAME = 'budget-tracker-v1';
+const CACHE_NAME = 'budget-tracker-v2';
 const urlsToCache = [
-  '/',
-  '/login',
-  '/register',
   '/records',
   '/stats',
   '/settings',
@@ -37,16 +34,44 @@ self.addEventListener('activate', (event) => {
 
 // Fetch strategy: Network first, falling back to cache
 self.addEventListener('fetch', (event) => {
+  // Skip caching for non-GET requests
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  const url = new URL(event.request.url);
+
+  // Don't cache API routes or authentication-dependent pages
+  const skipCache =
+    url.pathname.startsWith('/api/') ||
+    url.pathname === '/' ||
+    url.pathname === '/login' ||
+    url.pathname === '/register';
+
+  if (skipCache) {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        // Only return cached version if available
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Clone the response
-        const responseToCache = response.clone();
+        // Only cache successful responses
+        if (response.status === 200) {
+          // Clone the response
+          const responseToCache = response.clone();
 
-        // Cache the fetched response
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+          // Cache the fetched response
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
 
         return response;
       })
