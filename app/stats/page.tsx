@@ -25,7 +25,8 @@ export default function StatsPage() {
     date: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState<'week' | 'month' | 'year' | 'all'>('month');
+  const [viewMode, setViewMode] = useState<'week' | 'month' | 'year' | 'all'>('month');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -63,23 +64,84 @@ export default function StatsPage() {
 
   const getCategoryInfo = (id: string) => categories.find(c => c.id === id);
 
-  // Filter expenses based on time period
-  const filteredExpenses = useMemo(() => {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+  // Navigation functions
+  const goToPrevious = () => {
+    const newDate = new Date(currentDate);
+    if (viewMode === 'week') {
+      newDate.setDate(newDate.getDate() - 7);
+    } else if (viewMode === 'month') {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else if (viewMode === 'year') {
+      newDate.setFullYear(newDate.getFullYear() - 1);
+    }
+    setCurrentDate(newDate);
+  };
 
-    if (timeFilter === 'all') return expenses;
+  const goToNext = () => {
+    const newDate = new Date(currentDate);
+    if (viewMode === 'week') {
+      newDate.setDate(newDate.getDate() + 7);
+    } else if (viewMode === 'month') {
+      newDate.setMonth(newDate.getMonth() + 1);
+    } else if (viewMode === 'year') {
+      newDate.setFullYear(newDate.getFullYear() + 1);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const isCurrentPeriod = () => {
+    const now = new Date();
+    if (viewMode === 'week') {
+      const weekStart = getWeekStart(currentDate);
+      const nowWeekStart = getWeekStart(now);
+      return weekStart.getTime() === nowWeekStart.getTime();
+    } else if (viewMode === 'month') {
+      return currentDate.getMonth() === now.getMonth() &&
+             currentDate.getFullYear() === now.getFullYear();
+    } else if (viewMode === 'year') {
+      return currentDate.getFullYear() === now.getFullYear();
+    }
+    return false;
+  };
+
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
+  };
+
+  const getWeekEnd = (date: Date) => {
+    const start = getWeekStart(date);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return end;
+  };
+
+  // Filter expenses based on current period
+  const filteredExpenses = useMemo(() => {
+    if (viewMode === 'all') return expenses;
 
     return expenses.filter(e => {
       const expenseDate = new Date(e.date);
-      const daysDiff = Math.floor((now.getTime() - expenseDate.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (timeFilter === 'week') return daysDiff <= 7;
-      if (timeFilter === 'month') return daysDiff <= 30;
-      if (timeFilter === 'year') return daysDiff <= 365;
+      if (viewMode === 'week') {
+        const weekStart = getWeekStart(currentDate);
+        const weekEnd = getWeekEnd(currentDate);
+        return expenseDate >= weekStart && expenseDate <= weekEnd;
+      } else if (viewMode === 'month') {
+        return expenseDate.getMonth() === currentDate.getMonth() &&
+               expenseDate.getFullYear() === currentDate.getFullYear();
+      } else if (viewMode === 'year') {
+        return expenseDate.getFullYear() === currentDate.getFullYear();
+      }
       return true;
     });
-  }, [expenses, timeFilter]);
+  }, [expenses, viewMode, currentDate]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -142,11 +204,19 @@ export default function StatsPage() {
     };
   }, [filteredExpenses]);
 
-  const getTimeFilterLabel = () => {
-    if (timeFilter === 'week') return 'This Week';
-    if (timeFilter === 'month') return 'This Month';
-    if (timeFilter === 'year') return 'This Year';
-    return 'All Time';
+  const getPeriodLabel = () => {
+    if (viewMode === 'all') return 'All Time';
+
+    if (viewMode === 'week') {
+      const start = getWeekStart(currentDate);
+      const end = getWeekEnd(currentDate);
+      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } else if (viewMode === 'month') {
+      return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    } else if (viewMode === 'year') {
+      return currentDate.getFullYear().toString();
+    }
+    return '';
   };
 
   if (loading) {
@@ -173,116 +243,163 @@ export default function StatsPage() {
           <div className="w-16"></div>
         </div>
 
-        {/* Time Filter */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {['week', 'month', 'year', 'all'].map((filter) => (
+        {/* View Mode Selector */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+          {['week', 'month', 'year', 'all'].map((mode) => (
             <button
-              key={filter}
-              onClick={() => setTimeFilter(filter as any)}
+              key={mode}
+              onClick={() => {
+                setViewMode(mode as any);
+                if (mode !== 'all') {
+                  setCurrentDate(new Date());
+                }
+              }}
               className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                timeFilter === filter
+                viewMode === mode
                   ? 'bg-slate-800 text-white'
                   : 'bg-white text-slate-600 border border-slate-200'
               }`}
             >
-              {filter === 'week' ? 'Week' : filter === 'month' ? 'Month' : filter === 'year' ? 'Year' : 'All Time'}
+              {mode === 'week' ? 'Week' : mode === 'month' ? 'Month' : mode === 'year' ? 'Year' : 'All Time'}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Main Stats Card */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-4">
-        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-          {getTimeFilterLabel()}
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-slate-500 mb-1">Total Spent</p>
-            <p className="text-2xl font-bold text-slate-800">₱{stats.total.toLocaleString()}</p>
+        {/* Period Navigator */}
+        {viewMode !== 'all' && (
+          <div className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 mb-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={goToPrevious}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <span className="text-xl">←</span>
+              </button>
+
+              <div className="flex-1 text-center">
+                <p className="text-sm font-semibold text-slate-800">{getPeriodLabel()}</p>
+                {!isCurrentPeriod() && (
+                  <button
+                    onClick={goToToday}
+                    className="text-xs text-blue-600 hover:underline mt-1"
+                  >
+                    Go to current
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={goToNext}
+                disabled={isCurrentPeriod()}
+                className={`p-2 rounded-lg transition-colors ${
+                  isCurrentPeriod()
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : 'hover:bg-slate-100'
+                }`}
+              >
+                <span className="text-xl">→</span>
+              </button>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-slate-500 mb-1">Transactions</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.count}</p>
-          </div>
-          <div>
-            <p className="text-sm text-slate-500 mb-1">Avg per Transaction</p>
-            <p className="text-lg font-semibold text-slate-700">₱{Math.round(stats.average).toLocaleString()}</p>
-          </div>
-          <div>
-            <p className="text-sm text-slate-500 mb-1">Avg per Day</p>
-            <p className="text-lg font-semibold text-slate-700">₱{Math.round(stats.dailyAverage).toLocaleString()}</p>
+        )}
+
+        {/* Main Stats Card */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+            {getPeriodLabel()}
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-slate-500 mb-1">Total Spent</p>
+              <p className="text-2xl font-bold text-slate-800">₱{stats.total.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500 mb-1">Transactions</p>
+              <p className="text-2xl font-bold text-slate-800">{stats.count}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500 mb-1">Avg per Transaction</p>
+              <p className="text-lg font-semibold text-slate-700">₱{Math.round(stats.average).toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500 mb-1">Avg per Day</p>
+              <p className="text-lg font-semibold text-slate-700">₱{Math.round(stats.dailyAverage).toLocaleString()}</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Category Breakdown */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4">
-        <h2 className="text-lg font-bold text-slate-800 mb-4">By Category</h2>
-        <div className="space-y-3">
-          {Object.entries(stats.byCategory)
-            .sort(([, a], [, b]) => b.total - a.total)
-            .map(([categoryId, data]) => {
-              const cat = getCategoryInfo(categoryId);
-              const percentage = stats.total > 0 ? (data.total / stats.total) * 100 : 0;
-              return (
-                <div key={categoryId}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{cat?.icon}</span>
-                      <span className="text-sm font-medium text-slate-700">{cat?.label}</span>
-                      <span className="text-xs text-slate-400">({data.count})</span>
+      {Object.keys(stats.byCategory).length > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4">
+          <h2 className="text-lg font-bold text-slate-800 mb-4">By Category</h2>
+          <div className="space-y-3">
+            {Object.entries(stats.byCategory)
+              .sort(([, a], [, b]) => b.total - a.total)
+              .map(([categoryId, data]) => {
+                const cat = getCategoryInfo(categoryId);
+                const percentage = stats.total > 0 ? (data.total / stats.total) * 100 : 0;
+                return (
+                  <div key={categoryId}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{cat?.icon}</span>
+                        <span className="text-sm font-medium text-slate-700">{cat?.label}</span>
+                        <span className="text-xs text-slate-400">({data.count})</span>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-800">
+                        ₱{data.total.toLocaleString()}
+                      </span>
                     </div>
-                    <span className="text-sm font-semibold text-slate-800">
-                      ₱{data.total.toLocaleString()}
-                    </span>
+                    <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div
+                        className="bg-slate-800 h-2 rounded-full transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1 text-right">{percentage.toFixed(1)}%</p>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div
-                      className="bg-slate-800 h-2 rounded-full transition-all"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1 text-right">{percentage.toFixed(1)}%</p>
-                </div>
-              );
-            })}
+                );
+              })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Payment Method Breakdown */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4">
-        <h2 className="text-lg font-bold text-slate-800 mb-4">By Payment Method</h2>
-        <div className="space-y-3">
-          {Object.entries(stats.byPayment)
-            .sort(([, a], [, b]) => b.total - a.total)
-            .map(([method, data]) => {
-              const percentage = stats.total > 0 ? (data.total / stats.total) * 100 : 0;
-              const icon = method === 'cash' ? '💵' : method === 'gcash' ? '📱' : '💳';
-              return (
-                <div key={method}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{icon}</span>
-                      <span className="text-sm font-medium text-slate-700 capitalize">{method}</span>
-                      <span className="text-xs text-slate-400">({data.count})</span>
+      {Object.keys(stats.byPayment).length > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4">
+          <h2 className="text-lg font-bold text-slate-800 mb-4">By Payment Method</h2>
+          <div className="space-y-3">
+            {Object.entries(stats.byPayment)
+              .sort(([, a], [, b]) => b.total - a.total)
+              .map(([method, data]) => {
+                const percentage = stats.total > 0 ? (data.total / stats.total) * 100 : 0;
+                const icon = method === 'cash' ? '💵' : method === 'gcash' ? '📱' : '💳';
+                return (
+                  <div key={method}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{icon}</span>
+                        <span className="text-sm font-medium text-slate-700 capitalize">{method}</span>
+                        <span className="text-xs text-slate-400">({data.count})</span>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-800">
+                        ₱{data.total.toLocaleString()}
+                      </span>
                     </div>
-                    <span className="text-sm font-semibold text-slate-800">
-                      ₱{data.total.toLocaleString()}
-                    </span>
+                    <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1 text-right">{percentage.toFixed(1)}%</p>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1 text-right">{percentage.toFixed(1)}%</p>
-                </div>
-              );
-            })}
+                );
+              })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Highest and Lowest Expenses */}
       {stats.highest && stats.lowest && (
@@ -333,7 +450,7 @@ export default function StatsPage() {
       )}
 
       {/* Monthly Trend (for year/all time) */}
-      {(timeFilter === 'year' || timeFilter === 'all') && Object.keys(stats.monthlyTrend).length > 1 && (
+      {(viewMode === 'year' || viewMode === 'all') && Object.keys(stats.monthlyTrend).length > 1 && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4">
           <h2 className="text-lg font-bold text-slate-800 mb-4">Monthly Trend</h2>
           <div className="space-y-2">
@@ -368,48 +485,50 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* Spending Habits */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4">
-        <h2 className="text-lg font-bold text-slate-800 mb-4">Insights</h2>
-        <div className="space-y-3">
-          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-            <span className="text-xl">📊</span>
-            <div>
-              <p className="text-sm font-medium text-slate-700 mb-1">Active Days</p>
-              <p className="text-xs text-slate-500">
-                You spent money on {stats.daysWithExpenses} different days
-              </p>
+      {/* Insights */}
+      {stats.count > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4">
+          <h2 className="text-lg font-bold text-slate-800 mb-4">Insights</h2>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+              <span className="text-xl">📊</span>
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-1">Active Days</p>
+                <p className="text-xs text-slate-500">
+                  You spent money on {stats.daysWithExpenses} different days
+                </p>
+              </div>
             </div>
+
+            {stats.byCategory && Object.keys(stats.byCategory).length > 0 && (
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                <span className="text-xl">🎯</span>
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-1">Top Category</p>
+                  <p className="text-xs text-slate-500">
+                    Most spending in{' '}
+                    {getCategoryInfo(
+                      Object.entries(stats.byCategory).sort(([, a], [, b]) => b.total - a.total)[0][0]
+                    )?.label}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {stats.count > 0 && (
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                <span className="text-xl">💰</span>
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-1">Transaction Size</p>
+                  <p className="text-xs text-slate-500">
+                    Your average transaction is ₱{Math.round(stats.average).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-
-          {stats.byCategory && Object.keys(stats.byCategory).length > 0 && (
-            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-              <span className="text-xl">🎯</span>
-              <div>
-                <p className="text-sm font-medium text-slate-700 mb-1">Top Category</p>
-                <p className="text-xs text-slate-500">
-                  Most spending in{' '}
-                  {getCategoryInfo(
-                    Object.entries(stats.byCategory).sort(([, a], [, b]) => b.total - a.total)[0][0]
-                  )?.label}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {stats.count > 0 && (
-            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-              <span className="text-xl">💰</span>
-              <div>
-                <p className="text-sm font-medium text-slate-700 mb-1">Transaction Size</p>
-                <p className="text-xs text-slate-500">
-                  Your average transaction is ₱{Math.round(stats.average).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       {/* No data message */}
       {stats.count === 0 && (
