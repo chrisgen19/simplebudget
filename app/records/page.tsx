@@ -327,7 +327,7 @@ export default function RecordsPage() {
                 {!isCollapsed && (
                   <div className="px-4 pb-4 space-y-3">
                     {sortedDates.map((dateStr) => {
-                      const dateExpenses = groupedByDate[dateStr];
+                      const dateExpenses = groupedByDate[dateStr].sort((a, b) => b.id - a.id); // Sort by ID descending
                       const dateTotal = dateExpenses.reduce((sum, e) => sum + e.amount, 0);
 
                       return (

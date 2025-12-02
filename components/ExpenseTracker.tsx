@@ -265,7 +265,9 @@ export default function ExpenseTracker() {
 
   const today = getLocalDateString(new Date());
 
-  const todayExpenses = expenses.filter(e => e.date === today);
+  const todayExpenses = expenses
+    .filter(e => e.date === today)
+    .sort((a, b) => b.id - a.id); // Sort by ID descending (most recent first)
   const previousExpenses = expenses.filter(e => e.date !== today);
 
   const todayTotal = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -496,7 +498,7 @@ export default function ExpenseTracker() {
 
           {/* Previous Days Expenses - Limited to 4 days (+ today = 5 days total) */}
           {sortedDates.slice(0, 4).map((dateStr) => {
-            const dateExpenses = groupedExpenses[dateStr];
+            const dateExpenses = groupedExpenses[dateStr].sort((a, b) => b.id - a.id); // Sort by ID descending
             const dateTotal = dateExpenses.reduce((sum, e) => sum + e.amount, 0);
 
             return (
