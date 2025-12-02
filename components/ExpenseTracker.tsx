@@ -356,6 +356,8 @@ export default function ExpenseTracker() {
           <span className="text-3xl font-bold text-slate-400 mr-2">₱</span>
           <input
             type="number"
+            inputMode="decimal"
+            pattern="[0-9]*"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0"
