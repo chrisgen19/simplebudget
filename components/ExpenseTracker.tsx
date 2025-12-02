@@ -139,11 +139,54 @@ export default function ExpenseTracker() {
 
   const getCategoryInfo = (id: string) => categories.find(c => c.id === id);
 
-  const today = new Date().toISOString().split('T')[0];
+  // Get today's date in local timezone (YYYY-MM-DD format)
+  const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = getLocalDateString(new Date());
 
   const todayExpenses = expenses.filter(e => e.date === today);
+  const previousExpenses = expenses.filter(e => e.date !== today);
 
   const todayTotal = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Group previous expenses by date
+  const groupedExpenses = previousExpenses.reduce((groups, expense) => {
+    const date = expense.date;
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(expense);
+    return groups;
+  }, {} as Record<string, typeof expenses>);
+
+  // Sort dates in descending order (most recent first)
+  const sortedDates = Object.keys(groupedExpenses).sort((a, b) => b.localeCompare(a));
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = getLocalDateString(yesterday);
+
+    if (dateStr === yesterdayStr) {
+      return 'Yesterday';
+    }
+
+    // Parse the date string properly to avoid timezone issues
+    const [year, month, day] = dateStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 max-w-md mx-auto">
@@ -279,29 +322,75 @@ export default function ExpenseTracker() {
         {saved ? '✓ Saved!' : 'Save Expense'}
       </button>
 
-      {/* Today's Summary */}
-      {todayExpenses.length > 0 && (
-        <div className="mt-6 bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-medium text-slate-500">Today&apos;s spending</span>
-            <span className="text-lg font-bold text-slate-800">₱{todayTotal.toLocaleString()}</span>
-          </div>
+      {/* Spending History */}
+      {expenses.length > 0 && (
+        <div className="mt-6 space-y-4">
+          {/* Today's Expenses */}
+          {todayExpenses.length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm font-semibold text-slate-800">Today</span>
+                <span className="text-lg font-bold text-slate-800">₱{todayTotal.toLocaleString()}</span>
+              </div>
 
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {todayExpenses.slice(0, 5).map((expense) => {
-              const cat = getCategoryInfo(expense.category);
-              return (
-                <div key={expense.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
-                  <span className="text-xl">{cat?.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700">{cat?.label}</p>
-                    {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
-                  </div>
-                  <span className="text-sm font-semibold text-slate-800">₱{expense.amount.toLocaleString()}</span>
+              <div className="space-y-2">
+                {todayExpenses.map((expense) => {
+                  const cat = getCategoryInfo(expense.category);
+                  return (
+                    <div key={expense.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
+                      <span className="text-xl">{cat?.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700">{cat?.label}</p>
+                        {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
+                      </div>
+                      <span className="text-sm font-semibold text-slate-800">₱{expense.amount.toLocaleString()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Previous Days Expenses - Limited to 4 days (+ today = 5 days total) */}
+          {sortedDates.slice(0, 4).map((dateStr) => {
+            const dateExpenses = groupedExpenses[dateStr];
+            const dateTotal = dateExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+            return (
+              <div key={dateStr} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm font-medium text-slate-500">{formatDate(dateStr)}</span>
+                  <span className="text-base font-semibold text-slate-700">₱{dateTotal.toLocaleString()}</span>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="space-y-2">
+                  {dateExpenses.map((expense) => {
+                    const cat = getCategoryInfo(expense.category);
+                    return (
+                      <div key={expense.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
+                        <span className="text-xl">{cat?.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-700">{cat?.label}</p>
+                          {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
+                        </div>
+                        <span className="text-sm font-semibold text-slate-800">₱{expense.amount.toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* View All Records Button */}
+          {sortedDates.length > 4 && (
+            <button
+              onClick={() => router.push('/records')}
+              className="w-full py-3 bg-white rounded-2xl font-medium text-sm text-slate-600 hover:bg-slate-50 transition-all border border-slate-200 shadow-sm"
+            >
+              View All Records ({expenses.length} total)
+            </button>
+          )}
         </div>
       )}
 
