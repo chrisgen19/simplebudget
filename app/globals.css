@@ -36,7 +36,14 @@ input, textarea {
 }
 
 /* Prevent iOS Safari from zooming on input focus - MUST be at least 16px */
-input, textarea, select {
+/* Only apply to inputs without explicit font size classes */
+input:not([class*="text-"]),
+textarea:not([class*="text-"]),
+select:not([class*="text-"]),
+input[class*="text-xs"],
+input[class*="text-sm"],
+textarea[class*="text-xs"],
+textarea[class*="text-sm"] {
   font-size: 16px !important;
 }
 
