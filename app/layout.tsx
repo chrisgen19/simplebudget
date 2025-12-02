@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 export const metadata: Metadata = {
-  title: "Expense Tracker",
-  description: "Quick and simple expense tracking",
+  title: "Budget Tracker",
+  description: "Track your expenses easily with swipe gestures and detailed statistics",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Budget Tracker",
+  },
+  themeColor: "#1e293b",
 };
 
 export default function RootLayout({
@@ -13,7 +21,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
+      <body>
+        <PWAInstallPrompt />
+        {children}
+      </body>
     </html>
   );
 }
