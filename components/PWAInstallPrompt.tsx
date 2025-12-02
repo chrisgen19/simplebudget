@@ -21,6 +21,13 @@ export default function PWAInstallPrompt() {
       });
     }
 
+    // Check if device is mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (!isMobile) {
+      return; // Don't show prompt on desktop
+    }
+
     // Check if already installed as PWA
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
       || (window.navigator as any).standalone
