@@ -13,6 +13,30 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Hide scrollbar on mobile while keeping scrollability */
+@media (max-width: 768px) {
+  /* For Chrome, Safari and Opera */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* For IE, Edge and Firefox */
+  * {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* Alternative: Hide scrollbar on all devices for native app feel */
+::-webkit-scrollbar {
+  display: none;
+}
+
+html, body {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* Allow pan and swipe gestures, but prevent pinch zoom */
 html {
   touch-action: pan-x pan-y;
