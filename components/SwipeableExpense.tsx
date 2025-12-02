@@ -115,6 +115,22 @@ export default function SwipeableExpense({
     setSwipeOffset(0);
   };
 
+  // Get payment method icon and color
+  const getPaymentInfo = (payment: string) => {
+    switch (payment.toLowerCase()) {
+      case 'cash':
+        return { icon: '💵', color: 'bg-green-100 text-green-700 border-green-200' };
+      case 'gcash':
+        return { icon: '📱', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+      case 'card':
+        return { icon: '💳', color: 'bg-purple-100 text-purple-700 border-purple-200' };
+      default:
+        return { icon: '💰', color: 'bg-gray-100 text-gray-700 border-gray-200' };
+    }
+  };
+
+  const paymentInfo = getPaymentInfo(expense.payment);
+
   return (
     <div className="relative overflow-hidden rounded-lg">
       {/* Background actions */}
@@ -154,9 +170,14 @@ export default function SwipeableExpense({
           <p className="text-sm font-medium text-slate-700">{categoryLabel}</p>
           {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
         </div>
-        <span className="text-sm font-semibold text-slate-800">
-          ₱{expense.amount.toLocaleString()}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-1.5 py-0.5 rounded border ${paymentInfo.color}`}>
+            {paymentInfo.icon}
+          </span>
+          <span className="text-sm font-semibold text-slate-800">
+            ₱{expense.amount.toLocaleString()}
+          </span>
+        </div>
       </div>
     </div>
   );

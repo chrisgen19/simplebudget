@@ -329,6 +329,7 @@ export default function ExpenseTracker() {
             {isMenuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-1 z-10 border border-slate-200">
                 <button onClick={() => router.push('/records')} className="w-full text-left block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">All records</button>
+                <button onClick={() => router.push('/stats')} className="w-full text-left block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Statistics</button>
                 <button onClick={() => router.push('/settings')} className="w-full text-left block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Settings</button>
                 <div className="border-t border-slate-100 my-1"></div>
                 <button
