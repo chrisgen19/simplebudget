@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import SwipeableExpense from '@/components/SwipeableExpense';
 
 const categories = [
   { id: 'food', label: 'Food', icon: '🍔', color: 'bg-orange-100 border-orange-300 text-orange-700' },
@@ -40,6 +41,15 @@ export default function ExpenseTracker() {
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [editingExpense, setEditingExpense] = useState<{
+    id: number;
+    amount: number;
+    category: string;
+    payment: string;
+    note: string;
+    date: string;
+  } | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -139,6 +149,112 @@ export default function ExpenseTracker() {
 
   const getCategoryInfo = (id: string) => categories.find(c => c.id === id);
 
+  const handleEdit = (expense: any) => {
+    // Set editing mode with expense data
+    setEditingExpense(expense);
+    setAmount(expense.amount.toString());
+    setCategory(expense.category);
+    setPayment(expense.payment);
+    setNote(expense.note || '');
+    setDate(expense.date);
+
+    // Scroll to form
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingExpense(null);
+    setAmount('');
+    setCategory('');
+    setPayment('cash');
+    setNote('');
+    setDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleUpdateExpense = async () => {
+    if (!amount || !category || !user || !editingExpense) return;
+
+    try {
+      const response = await fetch(`/api/expenses/${editingExpense.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id.toString(),
+        },
+        body: JSON.stringify({
+          amount: parseFloat(amount),
+          category,
+          payment,
+          note,
+          date,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedExpense = await response.json();
+        const formattedExpense = {
+          ...updatedExpense,
+          date: new Date(updatedExpense.date).toISOString().split('T')[0],
+        };
+
+        // Update in state
+        setExpenses(expenses.map(e =>
+          e.id === editingExpense.id ? formattedExpense : e
+        ));
+
+        // Reset form
+        handleCancelEdit();
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else {
+        alert('Failed to update expense. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      alert('Failed to update expense. Please try again.');
+    }
+  };
+
+  // Check for expense to edit from records page
+  useEffect(() => {
+    const editExpenseStr = localStorage.getItem('editExpense');
+    if (editExpenseStr) {
+      const expense = JSON.parse(editExpenseStr);
+      handleEdit(expense);
+      // Clear from localStorage
+      localStorage.removeItem('editExpense');
+    }
+  }, [expenses]);
+
+  const handleDelete = async (id: number) => {
+    if (!user) return;
+
+    if (!confirm('Are you sure you want to delete this expense?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/expenses/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': user.id.toString(),
+        },
+      });
+
+      if (response.ok) {
+        // Remove from state
+        setExpenses(expenses.filter(e => e.id !== id));
+      } else {
+        alert('Failed to delete expense');
+      }
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      alert('Failed to delete expense');
+    }
+  };
+
   // Get today's date in local timezone (YYYY-MM-DD format)
   const getLocalDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -191,11 +307,15 @@ export default function ExpenseTracker() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 max-w-md mx-auto">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6" ref={formRef}>
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Add Expense</h1>
-            <p className="text-slate-500 text-sm">Quick and simple tracking</p>
+            <h1 className="text-2xl font-bold text-slate-800">
+              {editingExpense ? 'Edit Expense' : 'Add Expense'}
+            </h1>
+            <p className="text-slate-500 text-sm">
+              {editingExpense ? 'Update your expense details' : 'Quick and simple tracking'}
+            </p>
           </div>
           <div className="relative" ref={menuRef}>
             <button
@@ -309,18 +429,40 @@ export default function ExpenseTracker() {
         </div>
       </div>
 
-      {/* Save Button */}
-      <button
-        onClick={handleSubmit}
-        disabled={!amount || !category}
-        className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all ${
-          amount && category
-            ? 'bg-slate-800 text-white hover:bg-slate-700 active:scale-98'
-            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-        }`}
-      >
-        {saved ? '✓ Saved!' : 'Save Expense'}
-      </button>
+      {/* Save/Update Button */}
+      {editingExpense ? (
+        <div className="flex gap-3">
+          <button
+            onClick={handleCancelEdit}
+            className="flex-1 py-4 rounded-2xl font-semibold text-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUpdateExpense}
+            disabled={!amount || !category}
+            className={`flex-1 py-4 rounded-2xl font-semibold text-lg transition-all ${
+              amount && category
+                ? 'bg-slate-800 text-white hover:bg-slate-700 active:scale-98'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            {saved ? '✓ Updated!' : 'Update Expense'}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={handleSubmit}
+          disabled={!amount || !category}
+          className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all ${
+            amount && category
+              ? 'bg-slate-800 text-white hover:bg-slate-700 active:scale-98'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+          }`}
+        >
+          {saved ? '✓ Saved!' : 'Save Expense'}
+        </button>
+      )}
 
       {/* Spending History */}
       {expenses.length > 0 && (
@@ -337,14 +479,14 @@ export default function ExpenseTracker() {
                 {todayExpenses.map((expense) => {
                   const cat = getCategoryInfo(expense.category);
                   return (
-                    <div key={expense.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
-                      <span className="text-xl">{cat?.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700">{cat?.label}</p>
-                        {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
-                      </div>
-                      <span className="text-sm font-semibold text-slate-800">₱{expense.amount.toLocaleString()}</span>
-                    </div>
+                    <SwipeableExpense
+                      key={expense.id}
+                      expense={expense}
+                      categoryIcon={cat?.icon}
+                      categoryLabel={cat?.label}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                    />
                   );
                 })}
               </div>
@@ -367,14 +509,14 @@ export default function ExpenseTracker() {
                   {dateExpenses.map((expense) => {
                     const cat = getCategoryInfo(expense.category);
                     return (
-                      <div key={expense.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
-                        <span className="text-xl">{cat?.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-700">{cat?.label}</p>
-                          {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
-                        </div>
-                        <span className="text-sm font-semibold text-slate-800">₱{expense.amount.toLocaleString()}</span>
-                      </div>
+                      <SwipeableExpense
+                        key={expense.id}
+                        expense={expense}
+                        categoryIcon={cat?.icon}
+                        categoryLabel={cat?.label}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
                     );
                   })}
                 </div>

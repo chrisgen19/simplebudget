@@ -1,0 +1,163 @@
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+
+interface SwipeableExpenseProps {
+  expense: {
+    id: number;
+    amount: number;
+    category: string;
+    payment: string;
+    note: string;
+    date: string;
+  };
+  categoryIcon?: string;
+  categoryLabel?: string;
+  onEdit: (expense: any) => void;
+  onDelete: (id: number) => void;
+}
+
+export default function SwipeableExpense({
+  expense,
+  categoryIcon,
+  categoryLabel,
+  onEdit,
+  onDelete,
+}: SwipeableExpenseProps) {
+  const [startX, setStartX] = useState(0);
+  const [endX, setEndX] = useState(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  const minSwipeDistance = 50;
+  const editThreshold = 80;
+  const deleteThreshold = 150;
+
+  // Touch handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setStartX(e.targetTouches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setEndX(e.targetTouches[0].clientX);
+    const distance = startX - e.targetTouches[0].clientX;
+
+    // Only allow left swipe (positive distance)
+    if (distance > 0) {
+      setSwipeOffset(Math.min(distance, deleteThreshold + 50));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    finishSwipe();
+  };
+
+  // Mouse handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setStartX(e.clientX);
+    setIsDragging(true);
+    setIsSwiping(true);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+
+    setEndX(e.clientX);
+    const distance = startX - e.clientX;
+
+    // Only allow left swipe (positive distance)
+    if (distance > 0) {
+      setSwipeOffset(Math.min(distance, deleteThreshold + 50));
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    finishSwipe();
+  };
+
+  const handleMouseLeave = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    finishSwipe();
+  };
+
+  const finishSwipe = () => {
+    const distance = startX - endX;
+
+    if (distance > deleteThreshold) {
+      // Full swipe - delete
+      setSwipeOffset(deleteThreshold + 50);
+      setTimeout(() => {
+        onDelete(expense.id);
+      }, 200);
+    } else if (distance > editThreshold) {
+      // Partial swipe - edit
+      setSwipeOffset(editThreshold);
+      setTimeout(() => {
+        onEdit(expense);
+        setSwipeOffset(0);
+      }, 100);
+    } else {
+      // Not enough swipe - reset
+      setSwipeOffset(0);
+    }
+
+    setIsSwiping(false);
+  };
+
+  const handleReset = () => {
+    setSwipeOffset(0);
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Background actions */}
+      <div className="absolute inset-0 flex items-center justify-end">
+        {swipeOffset > editThreshold && swipeOffset < deleteThreshold && (
+          <div className="bg-blue-500 h-full flex items-center px-6">
+            <span className="text-white font-medium text-sm">✏️ Edit</span>
+          </div>
+        )}
+        {swipeOffset >= deleteThreshold && (
+          <div className="bg-red-500 h-full flex items-center px-6">
+            <span className="text-white font-medium text-sm">🗑️ Delete</span>
+          </div>
+        )}
+      </div>
+
+      {/* Swipeable content */}
+      <div
+        ref={itemRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onClick={swipeOffset > 0 ? handleReset : undefined}
+        style={{
+          transform: `translateX(-${swipeOffset}px)`,
+          transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+          userSelect: 'none',
+        }}
+        className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg cursor-grab active:cursor-grabbing"
+      >
+        <span className="text-xl">{categoryIcon}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-slate-700">{categoryLabel}</p>
+          {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
+        </div>
+        <span className="text-sm font-semibold text-slate-800">
+          ₱{expense.amount.toLocaleString()}
+        </span>
+      </div>
+    </div>
+  );
+}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import SwipeableExpense from '@/components/SwipeableExpense';
 
 const categories = [
   { id: 'food', label: 'Food', icon: '🍔', color: 'bg-orange-100 border-orange-300 text-orange-700' },
@@ -63,6 +64,40 @@ export default function RecordsPage() {
   };
 
   const getCategoryInfo = (id: string) => categories.find(c => c.id === id);
+
+  const handleEdit = (expense: any) => {
+    // Store the expense to edit in localStorage
+    localStorage.setItem('editExpense', JSON.stringify(expense));
+    // Redirect to homepage
+    router.push('/');
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!user) return;
+
+    if (!confirm('Are you sure you want to delete this expense?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/expenses/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': user.id.toString(),
+        },
+      });
+
+      if (response.ok) {
+        // Remove from state
+        setExpenses(expenses.filter(e => e.id !== id));
+      } else {
+        alert('Failed to delete expense');
+      }
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      alert('Failed to delete expense');
+    }
+  };
 
   // Get today's date in local timezone (YYYY-MM-DD format)
   const getLocalDateString = (date: Date) => {
@@ -163,14 +198,14 @@ export default function RecordsPage() {
                 {todayExpenses.map((expense) => {
                   const cat = getCategoryInfo(expense.category);
                   return (
-                    <div key={expense.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
-                      <span className="text-xl">{cat?.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700">{cat?.label}</p>
-                        {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
-                      </div>
-                      <span className="text-sm font-semibold text-slate-800">₱{expense.amount.toLocaleString()}</span>
-                    </div>
+                    <SwipeableExpense
+                      key={expense.id}
+                      expense={expense}
+                      categoryIcon={cat?.icon}
+                      categoryLabel={cat?.label}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                    />
                   );
                 })}
               </div>
@@ -193,14 +228,14 @@ export default function RecordsPage() {
                   {dateExpenses.map((expense) => {
                     const cat = getCategoryInfo(expense.category);
                     return (
-                      <div key={expense.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
-                        <span className="text-xl">{cat?.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-700">{cat?.label}</p>
-                          {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
-                        </div>
-                        <span className="text-sm font-semibold text-slate-800">₱{expense.amount.toLocaleString()}</span>
-                      </div>
+                      <SwipeableExpense
+                        key={expense.id}
+                        expense={expense}
+                        categoryIcon={cat?.icon}
+                        categoryLabel={cat?.label}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
                     );
                   })}
                 </div>
