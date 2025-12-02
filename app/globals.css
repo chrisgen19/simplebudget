@@ -47,7 +47,41 @@ textarea[class*="text-sm"] {
   font-size: 16px !important;
 }
 
+/* Ensure consistent height for all input types */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+input[type="number"],
+select {
+  line-height: 1.5;
+  height: auto;
+}
+
+/* Fix date input specifically to match text inputs */
+input[type="date"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+/* Slide up animation for PWA install prompt */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
 }
