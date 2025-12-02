@@ -29,21 +29,29 @@ export default function SwipeableExpense({
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [hasMoved, setHasMoved] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
-  const minSwipeDistance = 50;
+  const minSwipeDistance = 50; // Minimum distance to consider it a swipe
   const editThreshold = 80;
   const deleteThreshold = 150;
 
   // Touch handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     setStartX(e.targetTouches[0].clientX);
+    setEndX(e.targetTouches[0].clientX);
     setIsSwiping(true);
+    setHasMoved(false);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     setEndX(e.targetTouches[0].clientX);
     const distance = startX - e.targetTouches[0].clientX;
+
+    // Mark as moved if distance is significant
+    if (Math.abs(distance) > 10) {
+      setHasMoved(true);
+    }
 
     // Only allow left swipe (positive distance)
     if (distance > 0) {
@@ -58,8 +66,10 @@ export default function SwipeableExpense({
   // Mouse handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     setStartX(e.clientX);
+    setEndX(e.clientX);
     setIsDragging(true);
     setIsSwiping(true);
+    setHasMoved(false);
     e.preventDefault();
   };
 
@@ -68,6 +78,11 @@ export default function SwipeableExpense({
 
     setEndX(e.clientX);
     const distance = startX - e.clientX;
+
+    // Mark as moved if distance is significant
+    if (Math.abs(distance) > 10) {
+      setHasMoved(true);
+    }
 
     // Only allow left swipe (positive distance)
     if (distance > 0) {
@@ -90,6 +105,16 @@ export default function SwipeableExpense({
   const finishSwipe = () => {
     const distance = startX - endX;
 
+    // Only process swipe actions if user actually moved
+    // This prevents accidental taps from triggering actions
+    if (!hasMoved || distance < minSwipeDistance) {
+      // No significant movement - just reset
+      setSwipeOffset(0);
+      setIsSwiping(false);
+      setHasMoved(false);
+      return;
+    }
+
     if (distance > deleteThreshold) {
       // Full swipe - delete
       setSwipeOffset(deleteThreshold + 50);
@@ -109,6 +134,7 @@ export default function SwipeableExpense({
     }
 
     setIsSwiping(false);
+    setHasMoved(false);
   };
 
   const handleReset = () => {
