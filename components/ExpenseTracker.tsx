@@ -37,6 +37,7 @@ export default function ExpenseTracker() {
     date: string;
   }>>([]);
   const [saved, setSaved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<{ id: number; firstName: string; lastName: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -106,7 +107,9 @@ export default function ExpenseTracker() {
   };
 
   const handleSubmit = async () => {
-    if (!amount || !category || !user) return;
+    if (!amount || !category || !user || submitting) return;
+
+    setSubmitting(true);
 
     try {
       const response = await fetch('/api/expenses', {
@@ -144,6 +147,8 @@ export default function ExpenseTracker() {
     } catch (error) {
       console.error('Error saving expense:', error);
       alert('Failed to save expense. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -174,7 +179,9 @@ export default function ExpenseTracker() {
   };
 
   const handleUpdateExpense = async () => {
-    if (!amount || !category || !user || !editingExpense) return;
+    if (!amount || !category || !user || !editingExpense || submitting) return;
+
+    setSubmitting(true);
 
     try {
       const response = await fetch(`/api/expenses/${editingExpense.id}`, {
@@ -214,6 +221,8 @@ export default function ExpenseTracker() {
     } catch (error) {
       console.error('Error updating expense:', error);
       alert('Failed to update expense. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -439,33 +448,54 @@ export default function ExpenseTracker() {
         <div className="flex gap-3">
           <button
             onClick={handleCancelEdit}
-            className="flex-1 py-4 rounded-2xl font-semibold text-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-all"
+            disabled={submitting}
+            className={`flex-1 py-4 rounded-2xl font-semibold text-lg transition-all ${
+              submitting
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+            }`}
           >
             Cancel
           </button>
           <button
             onClick={handleUpdateExpense}
-            disabled={!amount || !category}
+            disabled={!amount || !category || submitting}
             className={`flex-1 py-4 rounded-2xl font-semibold text-lg transition-all ${
-              amount && category
+              amount && category && !submitting
                 ? 'bg-slate-800 text-white hover:bg-slate-700 active:scale-98'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
           >
-            {saved ? '✓ Updated!' : 'Update Expense'}
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating...
+              </span>
+            ) : saved ? '✓ Updated!' : 'Update Expense'}
           </button>
         </div>
       ) : (
         <button
           onClick={handleSubmit}
-          disabled={!amount || !category}
+          disabled={!amount || !category || submitting}
           className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all ${
-            amount && category
+            amount && category && !submitting
               ? 'bg-slate-800 text-white hover:bg-slate-700 active:scale-98'
               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
         >
-          {saved ? '✓ Saved!' : 'Save Expense'}
+          {submitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Saving...
+            </span>
+          ) : saved ? '✓ Saved!' : 'Save Expense'}
         </button>
       )}
 
