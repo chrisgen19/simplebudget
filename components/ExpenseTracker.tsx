@@ -21,13 +21,21 @@ const paymentMethods = [
   { id: 'card', label: 'Card', icon: '💳' },
 ];
 
+// Helper function to get local date string (YYYY-MM-DD format)
+const getLocalDateString = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function ExpenseTracker() {
   const router = useRouter();
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [payment, setPayment] = useState('cash');
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalDateString(new Date()));
   const [expenses, setExpenses] = useState<Array<{
     id: number;
     amount: number;
@@ -175,7 +183,7 @@ export default function ExpenseTracker() {
     setCategory('');
     setPayment('cash');
     setNote('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getLocalDateString(new Date()));
   };
 
   const handleUpdateExpense = async () => {
@@ -262,14 +270,6 @@ export default function ExpenseTracker() {
       console.error('Error deleting expense:', error);
       alert('Failed to delete expense');
     }
-  };
-
-  // Get today's date in local timezone (YYYY-MM-DD format)
-  const getLocalDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   };
 
   const today = getLocalDateString(new Date());
